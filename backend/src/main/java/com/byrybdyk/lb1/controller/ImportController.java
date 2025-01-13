@@ -29,7 +29,6 @@ public class ImportController {
         catch (Exception e){
             System.out.println("Ошибка при импорте файла: " + e);
         }
-
         return "redirect:/import";
     }
 }

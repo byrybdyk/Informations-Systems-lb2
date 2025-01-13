@@ -206,7 +206,7 @@ public class LabWorkService {
         labWorkHistoryRepository.save(history);
     }
 
-    public void addLabWorksFromFile(List<Map<String, String>> rows, Authentication authentication) {
+    public void addLabWorksFromFile(List<Map<String, String>> rows, String userName){
         int rowNum = 1;
         for (Map<String, String> row : rows) {
 
@@ -227,12 +227,10 @@ public class LabWorkService {
             Coordinates coordinates = coordinatesService.getOrCreateCoordinatesFromRow(row);
             labWork.setCoordinates(coordinates);
 
-            OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-            String userName = oauth2User.getAttribute("preferred_username");
+
             labWork.setOwner(userService.findByUsername(userName).orElseThrow(() -> new IllegalArgumentException("User not found")));
 
             labWorkRepository.save(labWork);
-            System.out.println("Строка "+ rowNum + " успешно добавлена");;
             rowNum++;
         }
     }

@@ -20,11 +20,8 @@ public class ImportHistoryService {
         this.userService = userService;
     }
 
-    public void addImportHistory(Authentication authentication, int addedObjectsCount, boolean isSuccessful) {
+    public void addImportHistory(String userName, int addedObjectsCount, boolean isSuccessful) {
         ImportHistory importHistory = new ImportHistory();
-
-        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String userName = oauth2User.getAttribute("preferred_username");
 
         importHistory.setUser(userService.findByUsername(userName).orElseThrow(() -> new IllegalArgumentException("User not found")));
         importHistory.setAddedObjectsCount(addedObjectsCount);
