@@ -2,6 +2,9 @@ package com.byrybdyk.lb1.controller;
 
 import ch.qos.logback.core.model.Model;
 import com.byrybdyk.lb1.service.ImportService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,24 +14,23 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 
-@Controller
+@RestController
 @RequestMapping("/import")
 public class ImportController {
+
+    @Autowired
     private ImportService importService;
 
-    public ImportController(ImportService importService) {
-        this.importService = importService;
-    }
-
-
     @PostMapping("/upload")
-    public String uploadFile(@RequestParam("file") MultipartFile file, Model model,Authentication authentication) throws Exception {
-        try{
-            importService.importFile(file,authentication);
+    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file, Authentication authentication) {
+        try {
+            // Добавляем файл в очередь и обрабатываем его
+            importService.addFileToQueue(file, authentication);
+            return ResponseEntity.ok("Файл добавлен в очередь на обработку.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Ошибка: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при импорте файла: " + e.getMessage());
         }
-        catch (Exception e){
-            System.out.println("Ошибка при импорте файла: " + e);
-        }
-        return "redirect:/import";
     }
 }

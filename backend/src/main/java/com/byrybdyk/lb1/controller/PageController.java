@@ -21,8 +21,7 @@ public class PageController {
 
     @GetMapping("/admin/home")
     public String adminHome(Model model, Authentication authentication) {
-        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String userName = oauth2User.getAttribute("preferred_username");
+        String userName = authentication.getName();
 
 
         model.addAttribute("username", userName);

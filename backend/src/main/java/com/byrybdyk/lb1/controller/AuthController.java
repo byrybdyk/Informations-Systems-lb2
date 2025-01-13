@@ -61,6 +61,8 @@ public class AuthController {
         this.sessionMappingRepository = sessionMappingRepository;
     }
 
+
+
     @GetMapping("/register")
     public String showRegistrationForm(Model model) {
         model.addAttribute("roles", Arrays.asList("USER", "ADMIN"));
@@ -91,6 +93,7 @@ public class AuthController {
         }
         return new ResponseEntity<>("Invalid username or password.", HttpStatus.UNAUTHORIZED);
     }
+
 
 
     @PostMapping("/logout/backchannel")

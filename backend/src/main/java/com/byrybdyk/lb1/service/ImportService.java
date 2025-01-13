@@ -6,8 +6,8 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,8 +23,7 @@ public class ImportService {
     private final ImportHistoryService importHistoryService;
 
     private final ConcurrentHashMap<String, ExecutorService> userExecutors = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Queue<MultipartFile>> userQueues = new ConcurrentHashMap<>();
-
+    private final ConcurrentHashMap<String, BlockingQueue<MultipartFile>> userQueues = new ConcurrentHashMap<>();
     private static final int MAX_CONCURRENT_FILES = 2;
 
     @Autowired
@@ -33,106 +32,91 @@ public class ImportService {
         this.importHistoryService = importHistoryService;
     }
 
-    @Transactional
-    public void importFile(MultipartFile file, Authentication authentication) throws Exception {
-        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String username = oauth2User.getAttribute("preferred_username");
+    public void addFileToQueue(MultipartFile file, Authentication authentication) {
+        String username = authentication.getName();
         System.out.println("Файл получен от пользователя: " + username + ", файл: " + file.getOriginalFilename());
 
         userExecutors.putIfAbsent(username, Executors.newFixedThreadPool(MAX_CONCURRENT_FILES));
         userQueues.putIfAbsent(username, new LinkedBlockingQueue<>());
 
-        Queue<MultipartFile> queue = userQueues.get(username);
-        queue.add(file);
-        System.out.println("Файл добавлен в очередь пользователя: " + username + ". Размер очереди: " + queue.size());
+        BlockingQueue<MultipartFile> queue = userQueues.get(username);
+        try {
+            queue.put(file);
+            System.out.println("Файл добавлен в очередь пользователя: " + username);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Ошибка при добавлении файла в очередь", e);
+        }
 
         processNextFile(username);
     }
 
-
     private void processNextFile(String username) {
-        Queue<MultipartFile> queue = userQueues.get(username);
+        BlockingQueue<MultipartFile> queue = userQueues.get(username);
         ExecutorService executorService = userExecutors.get(username);
 
-        System.out.println("Попытка обработки следующего файла для пользователя: " + username + ". Очередь содержит: " + queue.size() + " файлов.");
-        System.out.println("Количество активных процессов: " + getActiveTaskCount(username));
-
-        if (queue != null && !queue.isEmpty()) {
-
-            if (getActiveTaskCount(username) < MAX_CONCURRENT_FILES) {
-                MultipartFile file = queue.poll();
+        if (queue != null && !queue.isEmpty() && getActiveTaskCount(username) < MAX_CONCURRENT_FILES) {
+            try {
+                MultipartFile file = queue.take();
                 System.out.println("Запуск обработки файла: " + file.getOriginalFilename() + " для пользователя: " + username);
-                executorService.submit(() -> processFile(file, username));
-            } else {
-                System.out.println("Максимальное количество параллельных задач достигнуто для пользователя: " + username);
+
+                executorService.submit(() -> {
+                    try {
+                        processFile(file, username);
+                    } catch (Exception e) {
+                        System.out.println("Ошибка обработки файла: " + e.getMessage());
+                    } finally {
+                        processNextFile(username);
+                    }
+                });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.out.println("Ошибка при извлечении файла из очереди: " + e.getMessage());
             }
         }
     }
 
-
-    private void processFile(MultipartFile file, String username) {
-        try {
-            System.out.println("Обработка файла " + file.getOriginalFilename() + " начата для пользователя: " + username);
-
-            if (!file.getOriginalFilename().endsWith(".xlsx")) {
-                throw new IllegalArgumentException("Допустимы только файлы формата XLSX.");
-            }
-
-            List<Map<String, String>> rows = readXlsxFile(file);
-            Integer addedObjectsCount = 0;
-            double duplicatePercentage = calculateDuplicatePercentage(rows);
-            Boolean isSuccessful = false;
-
-            if (duplicatePercentage > 20) {
-                System.out.println("Более 20% строк являются дубликатами. Импорт отменен для файла: " + file.getOriginalFilename());
-            } else {
-                try {
-                    labWorkService.addLabWorksFromFile(rows, username);
-                    isSuccessful = true;
-                    addedObjectsCount = rows.size();
-                    System.out.println("Импорт файла " + file.getOriginalFilename() + " успешен для пользователя: " + username + ". Добавлено объектов: " + addedObjectsCount);
-                } catch (Exception e) {
-                    System.out.println("Ошибка при импорте файла " + file.getOriginalFilename() + " для пользователя " + username + ": " + e.getMessage());
-                }
-            }
-
-            importHistoryService.addImportHistory(username, addedObjectsCount, isSuccessful);
-            System.out.println("Запись истории импорта для пользователя " + username + " завершена.");
-        } catch (Exception e) {
-            System.out.println("Ошибка при обработке файла " + file.getOriginalFilename() + " для пользователя " + username + ": " + e.getMessage());
-        } finally {
-            processNextFile(username);
-        }
-    }
 
     private long getActiveTaskCount(String username) {
         ExecutorService executorService = userExecutors.get(username);
         if (executorService instanceof ThreadPoolExecutor) {
-            long activeCount = ((ThreadPoolExecutor) executorService).getActiveCount();
-            System.out.println("Количество активных процессов для пользователя " + username + ": " + activeCount);
-            return activeCount;
+            System.out.println("Потоков занято: " + ((ThreadPoolExecutor) executorService).getActiveCount());
+            return ((ThreadPoolExecutor) executorService).getActiveCount();
         }
         return 0;
     }
 
-    public double calculateDuplicatePercentage(List<Map<String, String>> rows) {
-        List<String> hashes = rows.stream()
-                .map(this::generateHashString)
-                .collect(Collectors.toList());
+    @Transactional
+    public void processFile(MultipartFile file, String username) {
+        if (!file.getOriginalFilename().endsWith(".xlsx")) {
+            throw new IllegalArgumentException("Неправильный формат файла. Допустимы только файлы формата XLSX.");
+        }
 
-        long totalRows = hashes.size();
-        long uniqueRows = hashes.stream().distinct().count();
+        List<Map<String, String>> rows;
+        try {
+            rows = readXlsxFile(file);
+        } catch (Exception e) {
+            throw new RuntimeException("Ошибка чтения файла", e);
+        }
 
-        long duplicateCount = totalRows - uniqueRows;
+        int addedObjectsCount = 0;
+        double duplicatePercentage = calculateDuplicatePercentage(rows);
 
-        System.out.println("Всего строк: " + totalRows);
-        System.out.println("Уникальных строк: " + uniqueRows);
-        System.out.println("Количество дубликатов: " + duplicateCount);
+        if (duplicatePercentage > 20) {
+            saveImportHistory(username, addedObjectsCount, false);
+            throw new IllegalArgumentException ("Более 20% строк являются дубликатами");
+        }
 
-        double duplicatePercentage = ((double) duplicateCount / totalRows) * 100;
+        labWorkService.addLabWorksFromFile(rows, username);
+        addedObjectsCount = rows.size();
 
-        System.out.println("Процент дубликатов: " + duplicatePercentage + "%");
-        return duplicatePercentage;
+        saveImportHistory(username, addedObjectsCount, true);
+    }
+
+    @Transactional
+    public void saveImportHistory(String username, int addedObjectsCount, boolean success) {
+        importHistoryService.addImportHistory(username, addedObjectsCount, success);
+        System.out.println("Запись истории импорта завершена.");
     }
 
     private List<Map<String, String>> readXlsxFile(MultipartFile file) throws Exception {
@@ -170,4 +154,18 @@ public class ImportService {
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .collect(Collectors.joining(","));
     }
+
+    public double calculateDuplicatePercentage(List<Map<String, String>> rows) {
+        List<String> hashes = rows.stream()
+                .map(this::generateHashString)
+                .collect(Collectors.toList());
+
+        long totalRows = hashes.size();
+        long uniqueRows = hashes.stream().distinct().count();
+
+        long duplicateCount = totalRows - uniqueRows;
+
+        return ((double) duplicateCount / totalRows) * 100;
+    }
 }
+

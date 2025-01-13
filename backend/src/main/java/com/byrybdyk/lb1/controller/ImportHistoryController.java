@@ -1,6 +1,8 @@
 package com.byrybdyk.lb1.controller;
 
+import com.byrybdyk.lb1.model.User;
 import com.byrybdyk.lb1.service.ImportHistoryService;
+import com.byrybdyk.lb1.service.UserService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -15,22 +17,19 @@ import java.util.Map;
 public class ImportHistoryController {
 
     private final ImportHistoryService importHistoryService;
+    private final UserService userService;
 
-    public ImportHistoryController(ImportHistoryService importHistoryService) {
+    public ImportHistoryController(ImportHistoryService importHistoryService, UserService userService) {
         this.importHistoryService = importHistoryService;
+        this.userService = userService;
     }
 
     @GetMapping("/import")
     public String viewImportHistory(Authentication authentication, Model model) {
-        OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
+        String userName = authentication.getName();
 
-        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String userName = oauth2User.getAttribute("preferred_username");
-
-        Map<String, Object> attributes = token.getPrincipal().getAttributes();
-
-        List<String> roles = (List<String>) attributes.get("roles");
-        boolean isAdmin = roles != null && roles.contains("ROLE_ADMIN");
+        User currentUser = userService.getUserByUsername(userName);
+        boolean isAdmin = currentUser.getRole().equals(currentUser.getRole().ADMIN);
         if (isAdmin) {
             model.addAttribute("history", importHistoryService.getAllImportHistory());
         } else {

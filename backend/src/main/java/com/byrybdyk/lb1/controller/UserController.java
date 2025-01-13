@@ -86,10 +86,9 @@ public class UserController {
         model.addAttribute("sort", sort);
         model.addAttribute("order", order);
 
-        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String userName = oauth2User.getAttribute("preferred_username");
 
 
+        String userName = authentication.getName();
         model.addAttribute("username", userName);
 
         return "user-home";
