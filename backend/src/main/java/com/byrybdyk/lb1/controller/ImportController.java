@@ -23,7 +23,12 @@ public class ImportController {
 
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model,Authentication authentication) throws Exception {
-        importService.importFile(file,authentication);
+        try{
+            importService.importFile(file,authentication);
+        }
+        catch (Exception e){
+            System.out.println("Ошибка при импорте файла: " + e);
+        }
 
         return "import";
     }
