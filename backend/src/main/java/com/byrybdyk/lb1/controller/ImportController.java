@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 
-@RestController
+@Controller
 @RequestMapping("/import")
 public class ImportController {
     private ImportService importService;
@@ -30,6 +30,6 @@ public class ImportController {
             System.out.println("Ошибка при импорте файла: " + e);
         }
 
-        return "import";
+        return "redirect:/import";
     }
 }

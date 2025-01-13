@@ -17,8 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.List;
-
 @Controller
 @RequestMapping("/user")
 public class UserController {
@@ -106,17 +104,6 @@ public class UserController {
         model.addAttribute("username", userName);
 
         return "user-request";
-    }
-
-    @GetMapping("/import")
-    public String showUserImport(Model model, Authentication authentication) {
-
-        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String userName = oauth2User.getAttribute("preferred_username");
-
-        model.addAttribute("username", userName);
-
-        return "user-import";
     }
 
 }

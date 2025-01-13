@@ -19,10 +19,12 @@ import java.util.stream.Collectors;
 @Service
 public class ImportService {
     private final LabWorkService labWorkService;
+    private final ImportHistoryService importHistoryService;
 
     @Autowired
-    public ImportService(LabWorkService labWorkService) {
+    public ImportService(LabWorkService labWorkService, ImportHistoryService importHistoryService) {
         this.labWorkService = labWorkService;
+        this.importHistoryService = importHistoryService;
     }
 
     @Transactional
@@ -36,19 +38,25 @@ public class ImportService {
         for (Map<String, String> row : rows) {
             System.out.println(row);
         }
-
+        Integer addedObjectsCount = 0;
         double duplicatePercentage = calculateDuplicatePercentage(rows);
-
+        Boolean isSuccessful = false;
         if (duplicatePercentage > 20) {
             System.out.println("Более 20% строк являются дубликатами. Импорт отменен.");
-            return;
+
+        }
+        else {
+            try {
+                labWorkService.addLabWorksFromFile(rows, authentication);
+            } catch (Exception e) {
+                System.out.println("Некорректный файл ");
+            }
+            isSuccessful = true;
+            addedObjectsCount = rows.size();
         }
 
-        try {
-            labWorkService.addLabWorksFromFile(rows, authentication);
-        } catch (Exception e) {
-            System.out.println("Некорректный файл " + e);
-        }
+
+        importHistoryService.addImportHistory(authentication, addedObjectsCount,isSuccessful);
     }
 
     public double calculateDuplicatePercentage(List<Map<String, String>> rows) {
