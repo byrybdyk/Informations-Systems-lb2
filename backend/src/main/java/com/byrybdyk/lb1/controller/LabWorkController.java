@@ -64,9 +64,9 @@
         }
 
         @MessageMapping("/labworks/add")
-        public ResponseEntity<LabWork> createLabWork(@Valid @RequestBody LabWorkDTO labWorkDTO) {
+        public ResponseEntity<LabWork> createLabWork(@Valid @RequestBody LabWorkDTO labWorkDTO,Authentication authentication) {
             try {
-                LabWork createdLabWork = labWorkService.createLabWorkFromDTO(labWorkDTO);
+                LabWork createdLabWork = labWorkService.createLabWorkFromDTO(labWorkDTO, authentication);
 
                 System.out.println("Sending message to /topic/labworks: " + createdLabWork);
                 messagingTemplate.convertAndSend("/topic/labworks", createdLabWork);

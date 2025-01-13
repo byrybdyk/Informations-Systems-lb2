@@ -108,4 +108,15 @@ public class UserController {
         return "user-request";
     }
 
+    @GetMapping("/import")
+    public String showUserImport(Model model, Authentication authentication) {
+
+        OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
+        String userName = oauth2User.getAttribute("preferred_username");
+
+        model.addAttribute("username", userName);
+
+        return "user-import";
+    }
+
 }

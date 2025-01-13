@@ -68,9 +68,10 @@ public class LabWorkService {
         labWork.setOwner(owner);
     }
 
-    public LabWork createLabWorkFromDTO(LabWorkDTO labWorkDTO) {
+    public LabWork createLabWorkFromDTO(LabWorkDTO labWorkDTO, Authentication authentication) {
         try {
             LabWork labWork = new LabWork();
+
 
 //
             Person author = authorService.getOrCreateAuthor(labWorkDTO.getAuthorId() , labWorkDTO.getAuthor());
@@ -90,7 +91,6 @@ public class LabWorkService {
             mapDtoToLabWork(labWork, labWorkDTO, author, owner);
             LabWork savedLabWork = saveLabWork(labWork);
 
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
             OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
             String currentUser = oauth2User.getAttribute("preferred_username");
@@ -204,6 +204,37 @@ public class LabWorkService {
         history.setCoordinates(labWork.getCoordinates());
         history.setUpdateTime(LocalDateTime.now());
         labWorkHistoryRepository.save(history);
+    }
+
+    public void addLabWorksFromFile(List<Map<String, String>> rows, Authentication authentication) {
+        int rowNum = 1;
+        for (Map<String, String> row : rows) {
+
+            LabWork labWork = new LabWork();
+            labWork.setName(row.get("name"));
+            labWork.setDescription(row.get("description"));
+            labWork.setDifficulty(Difficulty.valueOf(row.get("difficulty")));
+            labWork.setMinimalPoint(Float.parseFloat(row.get("minimalPoint")));
+            labWork.setPersonalQualitiesMinimum(Double.parseDouble(row.get("personalQualitiesMinimum")));
+            labWork.setPersonalQualitiesMaximum(Float.parseFloat(row.get("personalQualitiesMaximum")));
+
+            Person author = authorService.getOrCreateAuthorFromRow(row);
+            labWork.setAuthor(author);
+
+            Discipline discipline = disciplineService.getOrCreateDisciplineFromRow(row);
+            labWork.setDiscipline(discipline);
+
+            Coordinates coordinates = coordinatesService.getOrCreateCoordinatesFromRow(row);
+            labWork.setCoordinates(coordinates);
+
+            OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
+            String userName = oauth2User.getAttribute("preferred_username");
+            labWork.setOwner(userService.findByUsername(userName).orElseThrow(() -> new IllegalArgumentException("User not found")));
+
+            labWorkRepository.save(labWork);
+            System.out.println("Строка "+ rowNum + " успешно добавлена");;
+            rowNum++;
+        }
     }
 
     public void deleteByAuthor(String author) {
