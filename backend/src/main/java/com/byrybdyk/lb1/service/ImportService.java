@@ -115,7 +115,6 @@ public class ImportService {
             throw new RuntimeException("Ошибка хэширования строки", e);
         }
     }
-
 //    private void saveData(List<Map<String, String>> rows) {
 //        rows.forEach(row -> {
 //            CollectionItem item = new CollectionItem();
