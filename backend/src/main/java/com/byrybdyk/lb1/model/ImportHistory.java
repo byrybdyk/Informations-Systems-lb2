@@ -1,6 +1,10 @@
 package com.byrybdyk.lb1.model;
 
 import jakarta.persistence.*;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 
 @Entity
@@ -24,6 +28,15 @@ public class ImportHistory {
 
     @Column(nullable = false)
     private Boolean isSuccessful;
+
+    @Column(nullable = false, unique = true)
+    private String hash;
+
+    @Column(nullable = false)
+    private String uuid;
+
+    @Column(nullable = false)
+    private String fileName;
 
     @PrePersist
     protected void onCreate() {
@@ -69,4 +82,29 @@ public class ImportHistory {
     public void setIsSuccessful(Boolean successful) {
         isSuccessful = successful;
     }
+
+    public void setHash(String hash) {
+        this.hash = hash;
+    }
+
+    public String getHash() {
+        return hash;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
 }

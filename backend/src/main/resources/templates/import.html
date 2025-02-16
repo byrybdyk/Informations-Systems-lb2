@@ -119,14 +119,20 @@
             paginatedItems.forEach(entry => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${entry.id}</td>
-                    <td>${entry.isSuccessful ? 'Успешно' : 'Неудачно'}</td>
-                    <td>${entry.user.username}</td>
-                    <td>${entry.addedObjectsCount}</td>
-                    <td>${formatDate(entry.creationDate)}</td>
+                <td>${entry.id}</td>
+                <td>${entry.isSuccessful ? 'Успешно' : 'Неудачно'}</td>
+                <td>${entry.user.username}</td>
+                <td>${entry.addedObjectsCount}</td>
+                <td>${formatDate(entry.creationDate)}</td>
+                <td>
+                        ${entry.isSuccessful
+                    ? `<a href="javascript:void(0);" onclick="downloadFile('${entry.uuid}')">Скачать</a>`
+                    : ''        }
+                </td>
                 `;
                 tableBody.appendChild(row);
             });
+
 
             document.getElementById('currentPage').textContent = currentPage;
             document.getElementById('totalPages').textContent = totalPages;
@@ -150,6 +156,10 @@
             if (!dateString) return 'N/A';
             const date = new Date(dateString);
             return date.toLocaleString();
+        }
+
+        function downloadFile(uuid) {
+            window.location.href = '/import/download/' + uuid;
         }
 
         window.onload = function () {
@@ -185,6 +195,7 @@
                 <th>Пользователь</th>
                 <th>Число добавленных объектов</th>
                 <th>Дата и время</th>
+                <th>Файл</th>
             </tr>
             </thead>
             <tbody id="historyTableBody"></tbody>
